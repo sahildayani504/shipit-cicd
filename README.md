@@ -1,118 +1,243 @@
-# ShipIt — Containerized Flask App with CI/CD
+# ShipIt — Containerized Flask Application with CI/CD
 
-A small Python web service packaged with Docker and delivered through GitHub Actions.
+ShipIt is a containerized Python Flask application with an automated CI/CD pipeline using GitHub Actions.
+
+The project demonstrates automated testing, Docker image building, and publishing container images to GitHub Container Registry (GHCR).
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  A[Developer push / pull request] --> B[GitHub Actions]
-  B --> C[Install dependencies]
-  C --> D[Run Pytest]
-  D --> E[Build Docker image]
-  E --> F[Publish image to GHCR on main]
-  F --> G[Run container with Docker Compose]
+```text
+Developer
+    |
+    v
+GitHub Repository
+    |
+    v
+GitHub Actions
+    |
+    +----------------------+
+    |                      |
+    v                      v
+ CI Workflow         Publish Workflow
+    |                      |
+    v                      v
+Run Pytest           Build Docker Image
+Build Docker Image          |
+                            v
+                     GitHub Container
+                       Registry (GHCR)
+                            |
+                            v
+                     Pull & Run Image
 ```
 
-## Stack
-Python 3.12, Flask, Pytest, Docker, Docker Compose, GitHub Actions, GitHub Container Registry.
+## Technologies Used
 
-## 1. Run locally
+- Python 3.12
+- Flask
+- Pytest
+- Docker
+- Docker Compose
+- GitHub Actions
+- GitHub Container Registry (GHCR)
 
-Prerequisites: Python 3.12+ and Docker Desktop (for container run).
+## Project Structure
 
-### Run tests without Docker
+```text
+shipit-cicd/
+│
+├── app.py
+├── test_app.py
+├── requirements.txt
+├── requirements-dev.txt
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
+├── .gitignore
+│
+└── .github/
+    └── workflows/
+        ├── ci.yml
+        └── publish.yml
+```
+
+## Run Locally
+
+### Prerequisites
+
+- Python 3.12 or later
+- Docker Desktop (for container execution)
+- Git
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/YOUR_USERNAME/shipit-cicd.git
+cd shipit-cicd
+```
+
+### 2. Create a virtual environment
+
+**Windows PowerShell:**
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+**Linux/macOS:**
+
 ```bash
 python -m venv .venv
-# Windows PowerShell:
-.venv\Scripts\Activate.ps1
-# Linux / macOS:
-# source .venv/bin/activate
+source .venv/bin/activate
+```
 
+### 3. Install dependencies
+
+```bash
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
+```
+
+### 4. Run tests
+
+```bash
 pytest -v
+```
+
+### 5. Start the application
+
+```bash
 python app.py
 ```
-Open http://localhost:5000/health
 
-### Run with Docker
+Open the application:
+
+- Home: http://localhost:5000/
+- Health check: http://localhost:5000/health
+
+## Run with Docker
+
+Build the image:
+
 ```bash
 docker build -t shipit-app:local .
+```
+
+Run the container:
+
+```bash
 docker run --rm -p 5000:5000 shipit-app:local
 ```
-Open http://localhost:5000
 
-### Run with Docker Compose
+Access the application at http://localhost:5000/.
+
+## Run with Docker Compose
+
+Start the application:
+
 ```bash
 docker compose up --build
 ```
-Stop with `Ctrl+C`, then:
+
+Stop the application:
+
 ```bash
 docker compose down
 ```
 
-## 2. Push to GitHub and enable CI
+## CI/CD Pipeline
 
-1. Create a GitHub repository named `shipit-cicd`.
-2. From this folder:
-```bash
-git init
-git add .
-git commit -m "Build ShipIt CI/CD project"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/shipit-cicd.git
-git push -u origin main
-```
-3. Open the repository's **Actions** tab. The `CI` workflow runs on pushes and pull requests. It installs dependencies, runs tests and builds the Docker image.
+The project uses two GitHub Actions workflows.
 
-## 3. Publish image to GHCR
+### Continuous Integration — `ci.yml`
 
-The `Publish Container` workflow runs on pushes to `main`. It uses the automatically provided `GITHUB_TOKEN`; no personal token is required.
+Triggered by:
+- Push events
+- Pull requests
 
-1. Ensure repository **Settings → Actions → General → Workflow permissions** allows read and write permissions.
-2. Push a commit to `main`.
-3. Open **Actions** and confirm `Publish Container` succeeds.
-4. The package will appear under your GitHub profile's Packages. If you want to pull it without authentication, change the package visibility to Public in package settings.
+Pipeline activities:
+- Set up Python.
+- Install application and development dependencies.
+- Execute automated tests using Pytest.
+- Build the Docker image.
 
-Example image name:
-`ghcr.io/YOUR_GITHUB_USERNAME/shipit-cicd:latest`
+### Container Publishing — `publish.yml`
 
-Pull and run (replace username):
+Triggered by:
+- Pushes to the `main` branch.
+
+Pipeline activities:
+- Authenticate with GitHub Container Registry using `GITHUB_TOKEN`.
+- Build the Docker image.
+- Publish the image to GHCR.
+- Tag the image with `latest` and the commit SHA.
+
+The workflow uses the `packages: write` permission to publish container images without storing a personal access token.
+
+## Pull and Run the Published Image
+
+Pull the image:
+
 ```bash
 docker pull ghcr.io/YOUR_GITHUB_USERNAME/shipit-cicd:latest
+```
+
+Run the container:
+
+```bash
 docker run --rm -p 5000:5000 ghcr.io/YOUR_GITHUB_USERNAME/shipit-cicd:latest
 ```
 
-## 4. What the pipeline does
+Replace `YOUR_GITHUB_USERNAME` with your GitHub username.
 
-- `ci.yml`: triggers on pull requests and pushes; sets up Python, installs dependencies, runs Pytest and builds the Docker image.
-- `publish.yml`: triggers on pushes to `main`; logs in to GHCR using `GITHUB_TOKEN`, builds and pushes `latest` and commit-SHA tags.
-- The app exposes `/` and `/health`; Docker runs as a non-root user and includes a health check.
+If the package is private, authenticate with GHCR before pulling the image.
+
+## Application Endpoints
+
+| Endpoint | Description |
+|---|---|
+| `/` | Application home endpoint |
+| `/health` | Application health check |
+
+## Container Security
+
+- The Docker container runs using a non-root user.
+- A Docker health check is configured.
+- `.dockerignore` excludes unnecessary files from the build context.
+- GitHub credentials are not hardcoded into the source code or workflows.
 
 ## Troubleshooting
-- If Docker says the daemon is unavailable, start Docker Desktop and wait until it reports that the engine is running.
-- If PowerShell blocks venv activation, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`, then activate again.
-- If GHCR publishing gets a permission error, check workflow permissions and ensure `packages: write` is present in `publish.yml`.
-- Do not put a GitHub PAT in source code or workflow YAML.
 
-## Interview explanation (60–90 seconds)
-"I built a small Flask service and packaged it as a Docker image. I added a GitHub Actions CI workflow that runs on pull requests and pushes, installs dependencies, executes Pytest, and verifies the image can build. A separate workflow publishes the image to GitHub Container Registry when code reaches the main branch. I used the built-in GitHub Actions token with package-write permission rather than storing a personal token. The container runs as a non-root user and exposes a health endpoint. I can demonstrate the workflow run, published image and local container."
+**Docker daemon unavailable**
 
-## Interview questions to prepare
-1. **CI vs CD?** CI automatically integrates and validates changes; CD automates delivery/deployment after validation.
-2. **Why Docker?** Consistent packaging of app and runtime dependencies across environments.
-3. **Why separate CI and publish workflows?** Pull requests should be tested without publishing release images; publishing is limited to main.
-4. **What is GHCR?** GitHub's container registry for storing and distributing container images.
-5. **What is a tag?** A human-friendly or immutable reference to an image version. This workflow publishes `latest` and the commit SHA.
-6. **Why use GITHUB_TOKEN?** A short-lived workflow token with explicitly scoped permissions; avoids hard-coded credentials.
-7. **Why non-root?** Reduces container privileges if the application is compromised.
-8. **How would you improve this?** Add dependency/image scanning, pinned action versions, semantic version tags, deployment to a managed runtime, environment approvals, and rollback strategy.
+Start Docker Desktop and wait until the Docker engine is running.
 
-## Evidence checklist
-- [ ] Local `/health` responds with `{"status":"ok"}`.
-- [ ] `pytest -v` passes.
-- [ ] Docker image builds and container responds.
-- [ ] GitHub Actions CI run is green.
-- [ ] GHCR publish workflow is green and image exists.
-- [ ] Add screenshots of Actions and package page to the repository README.
+**PowerShell blocks virtual environment activation**
+
+Run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Then activate the virtual environment again.
+
+**GHCR publishing permission error**
+
+Verify that:
+- `packages: write` is configured in `publish.yml`.
+- Repository workflow permissions allow the required access.
+- The workflow uses the automatically provided `GITHUB_TOKEN`.
+
+## Future Improvements
+
+- Add Docker image and dependency vulnerability scanning.
+- Pin GitHub Actions to specific versions or commit SHAs.
+- Introduce semantic versioning for container images.
+- Add automated deployment to an Azure container hosting service.
+- Implement deployment approvals and rollback mechanisms.
+
+## Project Status
+
+**Personal DevOps project — Flask application, Docker containerization, automated CI testing, and GitHub Container Registry publishing.**
